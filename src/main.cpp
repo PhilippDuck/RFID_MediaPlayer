@@ -80,6 +80,12 @@ void receiveMessage()
            Serial.print(" ");
         }
         Serial.println("");
+
+        switch (message[3]) {
+          case 0x4C:
+              Serial.print("Aktueller Track: ");
+              Serial.println(message[6]);
+        }
     }
 }
 
@@ -189,28 +195,48 @@ void setup() {
 int buttonCount = 0;
 bool button;
 bool buttonWasPressed = false;
+unsigned long currentTime;
+unsigned long buttonStartTime;
+float buttonTimePressed;
 
 void loop()
 {
+    // Speichert aktuelle Zeit
+    currentTime = millis();
+
+    // wartet auf Nachrichten vom Serialbus
     receiveMessage();
 
+    // ließt den Zustand des Buttons
     button = digitalRead(playButton);
+
+    // verarbeitet Eingaben über den Button
     if (button and not buttonWasPressed)
     {
         delay(100);
         buttonCount += 1;
+        buttonStartTime = millis(); // Startzeit des Button
         buttonWasPressed = true;
         Serial.print("Taster wird gedrückt. ");
         Serial.println(buttonCount);
-        execute_CMD(0x01, 0, 0); // Nächster Track
-        execute_CMD(0x4C, 0, 0); // Frage nach aktuellem Track
 
     } else if (not button and buttonWasPressed)
     {
         buttonWasPressed = false;
+        // Errechne Dauer der Tasterbetätigung
+        buttonTimePressed = (currentTime - buttonStartTime);
+        Serial.print("Taster losgelassen. Dauer: ");
+        Serial.print(buttonTimePressed/1000);
+        Serial.println(" Sekunden");
+
+        if (buttonTimePressed < 1000)
+        {
+          execute_CMD(0x01, 0, 0); // Next track
+          execute_CMD(0x4C, 0, 0);
+        }
     }
 
-    // Look for new cards
+    // Wartet auf Rfid-Karten
     if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()){
       digitalWrite(blueLed, HIGH);
       delay(50);
